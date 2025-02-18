@@ -15,13 +15,14 @@ function _init()
 	state=0
 	level=1
 	wave={
-	{a=2},
-	{a=3},
+	{a=1},
+	{a=3,b=3},
 	{a=10,b=8}}
 	timer_wave=240
 	wave_transition = false
 	music_play = true
 	handle_music()
+	life=20
 end
 
 function _update60()
@@ -48,9 +49,7 @@ function draw_game()
 	--stars
 	draw_stars()
 	--enemies
-	for e in all(enemies) do
-		spr(16,e.x,e.y)
-	end	
+	draw_enemies()
 	--explosions
 	draw_explosions()
 	--vaisseau
@@ -64,7 +63,7 @@ function draw_game()
 	print(level,120,2,10)
 	draw_wave()
 	--test
-	print(wave[level].a,80,80)
+	print(life,120,120,10)
 end
 
 
@@ -148,18 +147,21 @@ end
 -->8
 --enemies
 bestiary={
-a={hp=30,speed=0.3},
-b={hp=15,speed=0.7}
+a={hp=30,speed=0.3,dam=1,spt=16},
+b={hp=80,speed=0.15,dam=1,spt=17}
 }
 
-function spawn_enemies(amount)
+function spawn_enemies(amount,t)
 	gap=(128-8*amount)/(amount+1)
  for i=1,amount do
 	 new_enemy={
 			x=gap*i+8*i-1,
 			y=-8,
-			hp=bestiary.a.hp,
-			speed=bestiary.a.speed
+			hp=bestiary[t].hp,
+			speed=bestiary[t].speed,
+			spt=bestiary[t].spt,
+			typ=t,
+			dam=bestiary[t].dam
 			}
 			add(enemies,new_enemy)
  end
@@ -168,16 +170,17 @@ end
 function update_enemies()
 	--spawn
 	if #enemies==0 then
-		if wave[level].a < 7 then
-			spawn_enemies(wave[level].a)
+		if actual_wave() < 7 then
+			spawn_enemies(actual_wave(),type_wave())
 		else
-		 spawn_enemies(ceil(rnd(4)+3))
+		 spawn_enemies(ceil(rnd(4)+3),type_wave())
 		end
 	end
 	for e in all(enemies) do
 		e.y+=e.speed
 		if e.y>128 then
-			kill_enemy(e)
+			kill_enemy(e,e.typ)
+			pass_through(e.dam)
 		end
 		--collisions
 		for b in all(all_bullets) do
@@ -187,7 +190,7 @@ function update_enemies()
 				create_explosion(b.x+4,b.y+2)
 				if e.hp<=0 then
 					sfx(2)
-				 kill_enemy(e)
+				 kill_enemy(e,e.typ)
 				 score+=10
 				end
 			end
@@ -195,9 +198,19 @@ function update_enemies()
 	end
 end
 
-function kill_enemy(e)
+function draw_enemies()
+	for e in all(enemies) do
+		spr(e.spt,e.x,e.y)
+	end	
+end
+
+function kill_enemy(e,typ)
 	del(enemies,e)
-	wave[level].a -=1
+	wave[level][typ] -= 1
+end
+
+function pass_through(dam)
+	life -= dam
 end
 -->8
 --collisions
@@ -247,6 +260,9 @@ function update_player()
 		if collision(e,p) then
 			state=1
 		end
+	end
+	if life <= 0 then
+		state=1
 	end
 end
 
@@ -307,6 +323,24 @@ function is_wave_empty()
 		end
 	end
 	return true
+end
+
+function actual_wave()
+	for typ,v in pairs(wave[level]) do
+		if v > 0 then
+			return wave[level][typ]
+		end
+	end
+	return 0
+end
+
+function type_wave()
+		for typ,v in pairs(wave[level]) do
+		if v > 0 then
+			return tostr(typ)
+		end
+	end
+	return 0
 end
 -->8
 --music
